@@ -82,7 +82,7 @@ class DCInsideApp(App):
         yield DataTable(id="post_list")
         with ScrollableContainer(id="post_viewer"):
             yield Static(id="post_header")
-            yield Markdown(id="post_content")
+            yield Markdown(id="post_content", open_links=False)
         yield Footer()
 
     def on_mount(self) -> None:
@@ -266,6 +266,74 @@ class DCInsideApp(App):
             self.query_one(DataTable).focus()
             self.query_one("#loading").add_class("-active")
             self.fetch_posts(keyword=self.search_keyword, page=self.current_page)
+
+    def on_markdown_link_clicked(self, event: Markdown.LinkClicked) -> None:
+        url = event.href
+        if "dcinside.com" in url or "dcimg" in url:
+            self.query_one("#loading").add_class("-active")
+            self.download_and_open_media(url)
+        else:
+            self.app.open_url(url)
+
+    @work(exclusive=False, thread=True)
+    def download_and_open_media(self, url: str) -> None:
+        import requests, tempfile, subprocess, os
+        
+        # 1. Get bounds before opening anything
+        try:
+            get_bounds_script = """
+            tell application "System Events"
+                set frontApp to name of first application process whose frontmost is true
+                tell process frontApp
+                    set termBounds to position of front window
+                    set termSize to size of front window
+                end tell
+                return (item 1 of termBounds as string) & "," & (item 2 of termBounds as string) & "," & (item 1 of termSize as string) & "," & (item 2 of termSize as string)
+            end tell
+            """
+            result = subprocess.run(["osascript", "-e", get_bounds_script], capture_output=True, text=True)
+            term_bounds = result.stdout.strip().split(',')
+            termX, termY, termW, termH = map(int, term_bounds)
+        except Exception:
+            termX, termY, termW, termH = None, None, None, None
+
+        headers = self.scraper.headers.copy()
+        headers["Referer"] = "https://gall.dcinside.com/"
+        try:
+            resp = requests.get(url, headers=headers, timeout=15)
+            resp.raise_for_status()
+            ext = ".jpg"
+            if ".png" in url: ext = ".png"
+            elif ".gif" in url: ext = ".gif"
+            elif ".mp4" in url: ext = ".mp4"
+            fd, path = tempfile.mkstemp(suffix=ext)
+            with os.fdopen(fd, 'wb') as f:
+                f.write(resp.content)
+                
+            subprocess.run(["open", path])
+            
+            # 2. Position window
+            if termX is not None:
+                position_script = f"""
+                delay 0.5
+                tell application "System Events"
+                    set frontApp to name of first application process whose frontmost is true
+                    tell process frontApp
+                        set prevSize to size of front window
+                        set prevW to item 1 of prevSize
+                        set targetX to {termX} + {termW} - prevW
+                        set targetY to {termY}
+                        set position of front window to {{targetX, targetY}}
+                    end tell
+                end tell
+                """
+                subprocess.Popen(["osascript", "-e", position_script])
+
+            self.app.call_from_thread(self.notify, "미디어를 열었습니다.")
+            self.app.call_from_thread(self.query_one("#loading").remove_class, "-active")
+        except Exception as e:
+            self.app.call_from_thread(self.notify, f"미디어 열기 실패: {str(e)}", severity="error")
+            self.app.call_from_thread(self.query_one("#loading").remove_class, "-active")
 
 
 if __name__ == "__main__":

@@ -85,6 +85,34 @@ class DCScraper:
         for script in content_elem.select('script'):
             script.decompose()
             
+        # Extract images
+        for img in content_elem.select('img'):
+            src = img.get('data-original') or img.get('src')
+            if src:
+                if src.startswith('//'):
+                    src = 'https:' + src
+                elif src.startswith('/'):
+                    src = 'https://gall.dcinside.com' + src
+                # Use Markdown link syntax
+                img.replace_with(f"\n[📷 이미지 보기]({src})\n")
+                
+        # Extract videos
+        for video in content_elem.select('video'):
+            source = video.select_one('source')
+            src = source.get('src') if source else video.get('src')
+            if src:
+                if src.startswith('//'):
+                    src = 'https:' + src
+                video.replace_with(f"\n[🎥 영상/움짤 보기]({src})\n")
+
+        # Extract iframes (youtube etc)
+        for iframe in content_elem.select('iframe'):
+            src = iframe.get('src')
+            if src:
+                if src.startswith('//'):
+                    src = 'https:' + src
+                iframe.replace_with(f"\n[🔗 외부 링크 보기]({src})\n")
+                
         content = content_elem.get_text(separator='\n\n', strip=True)
         
         # Fetch comments
