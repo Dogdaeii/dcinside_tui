@@ -1,0 +1,51 @@
+# DCInside TUI Viewer
+
+![DCInside Viewer Screenshot](assets/screenshot.png)
+
+**터미널에서 가장 빠르고 쾌적하게 즐기는 디시인사이드 뷰어**
+마우스를 쓸 필요 없이 텍스트 기반 사용자 인터페이스(TUI)로 구성되어 있어, 개발자나 해커 감성을 사랑하는 분들에게 최고의 열람 경험을 제공합니다. (Built by Jaden Lee)
+
+## 💡 주요 기능 (Features)
+
+* ⚡ **키보드 중심의 쾌적한 탐색 (Keyboard-First Navigation)**
+  * 오직 방향키와 단축키(`t`, `r`, `p`, `n`, `Esc` 등)만으로 갤러리 목록부터 게시물 본문까지 빛의 속도로 열람할 수 있습니다.
+* 📁 **나만의 멀티 갤러리 지원 (Multi-Gallery Support)**
+  * '특이점이 온다', '러닝 마이너' 등 자주 가는 갤러리 주소를 자유롭게 추가하고 저장하여 빠르게 전환할 수 있습니다.
+* 🎨 **14종의 다이내믹 커스텀 스킨 (Dynamic Themes)**
+  * 'NASA 콘솔', '매트릭스', 'CIA 블랙파일', '월스트리트' 등 감성 넘치는 14가지 해커 스타일 테마를 지원합니다.
+  * `t` 키를 눌러 스킨을 고르면 **앱 재시작 없이 실시간으로** 색상이 변경되며, 설정이 영구 저장됩니다.
+* 🖼️ **스마트 미디어 뷰어 연동 (Smart Media Viewer)**
+  * 게시글 안의 이미지(`jpg`, `png`)나 비디오(`mp4`, `gif`) 링크를 클릭하면 즉시 다운로드하여 맥 OS의 기본 이미지 뷰어로 터미널 창 옆에 스마트하게 띄워줍니다. 
+
+## 🚀 설치 및 실행 (Installation & Run)
+
+이 프로젝트는 Python 3 환경과 `Textual` 라이브러리를 사용합니다.
+
+```bash
+# 1. 저장소 클론
+git clone https://github.com/Dogdaeii/dcinside_tui.git
+cd dcinside_tui
+
+# 2. 가상환경 생성 및 의존성 설치
+python3 -m venv venv
+source venv/bin/activate
+pip install textual requests beautifulsoup4
+
+# 3. 앱 실행
+python app.py
+```
+
+## ⌨️ 단축키 안내 (Hotkeys)
+
+* `t` : **스킨(테마) 선택 팝업 열기** (전역)
+* `방향키 (위/아래)` : 리스트 및 본문 스크롤
+* `Enter` : 갤러리 입장 / 게시글 열기
+* `Esc` : 이전 화면으로 돌아가기 (뒤로가기)
+* `p` / `n` : 게시글 목록에서 이전/다음 페이지 이동, 또는 본문에서 이전글/다음글 넘기기
+* `r` : 새로고침
+* `/` : 제목 + 내용 게시글 검색
+
+## 🛠️ 기술 스택 (Tech Stack)
+* **Python 3**
+* **Textual**: 빠르고 아름다운 TUI 프레임워크
+* **BeautifulSoup4**: HTML 파싱 및 웹 크롤링
