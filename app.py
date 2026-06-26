@@ -1,7 +1,7 @@
 import json
 import os
 from textual.app import App, ComposeResult
-from textual.screen import Screen
+from textual.screen import Screen, ModalScreen
 from textual.widgets import Header, Footer, DataTable, Markdown, Static, Input, OptionList, Label
 from textual.widgets.option_list import Option
 from textual.containers import Container, ScrollableContainer, Vertical
@@ -10,8 +10,10 @@ from textual.worker import Worker, WorkerState
 from textual import work
 
 from scraper import DCScraper
+from themes import SKINS, register_all_themes
 
 GALLERIES_FILE = "galleries.json"
+SETTINGS_FILE = "settings.json"
 DEFAULT_GALLERIES = [
     {"name": "특이점이 온다", "id": "thesingularity", "type": "mgallery", "url": "https://gall.dcinside.com/mgallery/board/lists?id=thesingularity"},
     {"name": "러닝 마이너", "id": "running", "type": "mgallery", "url": "https://gall.dcinside.com/mgallery/board/lists?id=running"}
@@ -30,12 +32,65 @@ def load_galleries():
 def save_galleries(galleries):
     with open(GALLERIES_FILE, "w", encoding="utf-8") as f:
         json.dump(galleries, f, ensure_ascii=False, indent=2)
+        
+def load_settings():
+    if not os.path.exists(SETTINGS_FILE):
+        return {"theme": "NASA 콘솔"}
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {"theme": "NASA 콘솔"}
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(settings, f, ensure_ascii=False, indent=2)
+
+class ThemeSelectScreen(ModalScreen):
+    """Modal screen for selecting a theme."""
+    
+    CSS = """
+    ThemeSelectScreen {
+        align: center middle;
+    }
+    #theme_dialog {
+        padding: 1 2;
+        width: 40;
+        height: 20;
+        border: solid $primary;
+        background: $surface;
+    }
+    """
+    
+    BINDINGS = [
+        Binding("escape", "app.pop_screen", "Cancel"),
+        Binding("t", "app.pop_screen", "Cancel")
+    ]
+    
+    def compose(self) -> ComposeResult:
+        with Vertical(id="theme_dialog"):
+            yield Label("스킨 선택", classes="title")
+            yield OptionList(id="theme_list")
+            
+    def on_mount(self) -> None:
+        option_list = self.query_one("#theme_list", OptionList)
+        active_skin = self.app.active_skin
+        for idx, name in enumerate(SKINS.keys()):
+            option_list.add_option(Option(name, id=name))
+            if name == active_skin:
+                option_list.highlighted = idx
+                
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        theme_name = event.option_id
+        self.app.set_theme(theme_name)
+        self.app.pop_screen()
 
 class GallerySelectScreen(Screen):
     """Screen for selecting or adding a gallery."""
     
     BINDINGS = [
-        Binding("q", "app.quit", "Quit")
+        Binding("q", "app.quit", "Quit"),
+        Binding("t", "app.toggle_theme_screen", "Theme(t)")
     ]
     
     def compose(self) -> ComposeResult:
@@ -118,6 +173,7 @@ class PostListScreen(Screen):
     
     BINDINGS = [
         Binding("q", "app.quit", "Quit"),
+        Binding("t", "app.toggle_theme_screen", "Theme(t)"),
         Binding("r", "refresh_list", "Refresh"),
         Binding("/", "search", "Search"),
         Binding("p", "prev", "Prev Page"),
@@ -218,6 +274,7 @@ class PostListScreen(Screen):
             self.app.bind("r", "refresh_list", description="Refresh", show=True)
             self.app.bind("/", "search", description="Search", show=True)
             self.app.bind("escape", "back", description="Gallery(Esc)", show=True)
+            self.app.bind("t", "app.toggle_theme_screen", description="Theme(t)", show=True)
             self.refresh_bindings()
             
             self.query_one(DataTable).focus()
@@ -262,6 +319,7 @@ class PostListScreen(Screen):
         self.app.bind("n", "next", description="Next Post", show=True)
         self.app.bind("r", "refresh_list", description="Refresh", show=False)
         self.app.bind("/", "search", description="Search", show=False)
+        self.app.bind("t", "app.toggle_theme_screen", description="Theme", show=False)
         self.app.bind("escape", "back", description="List(Esc)", show=True)
         self.refresh_bindings()
         
@@ -446,10 +504,31 @@ class DCInsideApp(App):
     """
 
     def on_mount(self) -> None:
+        register_all_themes(self)
+        settings = load_settings()
+        self.active_skin = settings.get("theme", "NASA 콘솔")
+        self.set_theme(self.active_skin)
         self.push_screen(GallerySelectScreen())
         
     def switch_to_gallery(self, gallery_info: dict):
         self.push_screen(PostListScreen(gallery_info))
+
+    def action_toggle_theme_screen(self):
+        self.push_screen(ThemeSelectScreen())
+
+    def set_theme(self, theme_name: str):
+        try:
+            idx = list(SKINS.keys()).index(theme_name)
+            self.theme = f"theme_{idx}"
+        except ValueError:
+            pass
+        
+        self.active_skin = theme_name
+        
+        # Save settings
+        settings = load_settings()
+        settings["theme"] = theme_name
+        save_settings(settings)
 
 if __name__ == "__main__":
     app = DCInsideApp()
