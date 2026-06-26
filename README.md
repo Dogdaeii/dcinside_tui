@@ -6,15 +6,15 @@
 ## 📸 스크린샷 (Screenshots)
 
 ### 1. 첫 화면: 멀티 갤러리 선택 (Gallery Selection)
-자주 가는 갤러리를 한 곳에 모아두고 자유롭게 넘나들 수 있습니다.
+자주 방문하는 갤러리를 등록하고 한눈에 관리하세요. 하단 입력창을 통해 원하는 갤러리 URL이나 ID를 입력하면 즉시 목록에 추가됩니다.
 ![Gallery Select](assets/screen_gallery_select.png)
 
-### 2. 게시물 목록 열람 (Post List)
-키보드 방향키와 단축키만으로 빠르고 쾌적하게 리스트를 스크롤하고 검색할 수 있습니다.
-![Post List](assets/screen_post_list.png)
+### 2. 게시물 본문 및 댓글 열람 (Post View & Comments)
+복잡한 웹페이지 요소 없이, 오직 글 본문과 댓글에만 집중할 수 있는 깔끔한 뷰를 제공합니다. 단축키(`p`, `n`)를 통해 글 목록으로 나갈 필요 없이 이전/다음 글로 빠르게 넘나들 수 있습니다.
+![Post View](assets/screen_post_list.png)
 
 ### 3. 실시간 커스텀 스킨 (Dynamic Theme Select)
-`t` 단축키를 누르면 나타나는 스킨 선택 창. 14종의 테마(NASA 콘솔, 매트릭스 등)를 실시간으로 적용할 수 있습니다.
+앱 어디서든 `t` 단축키를 누르면 나타나는 스킨 선택 창. 스크린샷의 '항공모함 CIC' 테마를 비롯해 'NASA 콘솔', '매트릭스' 등 14종의 테마를 즉시 적용할 수 있습니다.
 ![Theme Select](assets/screen_theme_select.png)
 
 ## 💡 주요 기능 (Features)
