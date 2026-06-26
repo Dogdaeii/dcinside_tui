@@ -3,12 +3,52 @@ from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
 
 class DCScraper:
-    def __init__(self, gallery_id: str):
+    def __init__(self, gallery_id: str, board_type: str = "mgallery"):
         self.gallery_id = gallery_id
-        self.base_url = "https://gall.dcinside.com/mgallery/board"
+        self.board_type = board_type
+        if board_type == "board":
+            self.base_url = "https://gall.dcinside.com/board"
+        elif board_type == "mini":
+            self.base_url = "https://gall.dcinside.com/mini/board"
+        else:
+            self.base_url = "https://gall.dcinside.com/mgallery/board"
+            
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
+        self.gallery_name = ""
+
+    @staticmethod
+    def parse_url(url: str):
+        """Parse DCInside URL and return (gallery_id, board_type)."""
+        import urllib.parse
+        parsed = urllib.parse.urlparse(url)
+        qs = urllib.parse.parse_qs(parsed.query)
+        gallery_id = qs.get("id", [""])[0]
+        
+        board_type = "mgallery"
+        if "/mini/board" in parsed.path:
+            board_type = "mini"
+        elif "/mgallery/board" in parsed.path:
+            board_type = "mgallery"
+        elif "/board" in parsed.path:
+            board_type = "board"
+            
+        return gallery_id, board_type
+
+    def fetch_gallery_info(self) -> str:
+        """Fetch and return gallery name."""
+        url = f"{self.base_url}/lists/?id={self.gallery_id}"
+        try:
+            response = requests.get(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
+            title = soup.title.string if soup.title else ""
+            name = title.split(" - ")[0].replace(" 갤러리", "").strip() if title else self.gallery_id
+            self.gallery_name = name
+            return name
+        except requests.RequestException:
+            return self.gallery_id
 
     def get_post_list(self, page: int = 1, search_type: str = "", keyword: str = "") -> List[Dict]:
         url = f"{self.base_url}/lists/?id={self.gallery_id}&page={page}"
