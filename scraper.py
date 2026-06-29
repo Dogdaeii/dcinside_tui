@@ -152,6 +152,22 @@ class DCScraper:
                 if src.startswith('//'):
                     src = 'https:' + src
                 iframe.replace_with(f"\n[🔗 외부 링크 보기]({src})\n")
+
+        # Extract regular links. Some terminals keep the mouse cursor as an
+        # I-beam, so make links visually explicit inside the text itself.
+        for anchor in content_elem.select('a[href]'):
+            href = anchor.get('href')
+            if not href:
+                continue
+            if href.startswith('//'):
+                href = 'https:' + href
+            elif href.startswith('/'):
+                href = 'https://gall.dcinside.com' + href
+
+            label = anchor.get_text(' ', strip=True) or '링크 열기'
+            if label == href:
+                label = '링크 열기'
+            anchor.replace_with(f"\n[↗ {label}]({href})\n")
                 
         content = content_elem.get_text(separator='\n\n', strip=True)
         
@@ -194,5 +210,6 @@ class DCScraper:
         
         return {
             "id": post_id,
+            "url": url,
             "content": content
         }

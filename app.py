@@ -1,23 +1,33 @@
 import json
 import os
+import sys
 from textual.app import App, ComposeResult
 from textual.screen import Screen, ModalScreen
-from textual.widgets import Header, Footer, DataTable, Markdown, Static, Input, OptionList, Label
+from textual.widgets import Header, Footer, DataTable, Markdown, Static, Input, OptionList, Label, Link
 from textual.widgets.option_list import Option
 from textual.containers import Container, ScrollableContainer, Vertical
 from textual.binding import Binding
 from textual.worker import Worker, WorkerState
 from textual import work
+from textual import events
 
 from scraper import DCScraper
 from themes import SKINS, register_all_themes
 
 GALLERIES_FILE = "galleries.json"
 SETTINGS_FILE = "settings.json"
+WINDOW_COLUMNS = 140
+WINDOW_ROWS = 66
 DEFAULT_GALLERIES = [
     {"name": "특이점이 온다", "id": "thesingularity", "type": "mgallery", "url": "https://gall.dcinside.com/mgallery/board/lists?id=thesingularity"},
     {"name": "러닝 마이너", "id": "running", "type": "mgallery", "url": "https://gall.dcinside.com/mgallery/board/lists?id=running"}
 ]
+
+def request_terminal_size(columns: int = WINDOW_COLUMNS, rows: int = WINDOW_ROWS) -> None:
+    if not sys.stdout.isatty():
+        return
+    sys.stdout.write(f"\033[8;{rows};{columns}t")
+    sys.stdout.flush()
 
 def load_galleries():
     if not os.path.exists(GALLERIES_FILE):
@@ -64,7 +74,8 @@ class ThemeSelectScreen(ModalScreen):
     
     BINDINGS = [
         Binding("escape", "app.pop_screen", "Cancel"),
-        Binding("t", "app.pop_screen", "Cancel")
+        Binding("t", "app.pop_screen", "Cancel"),
+        Binding("ㅅ", "app.pop_screen", "Cancel", show=False)
     ]
     
     def compose(self) -> ComposeResult:
@@ -90,7 +101,9 @@ class GallerySelectScreen(Screen):
     
     BINDINGS = [
         Binding("q", "app.quit", "Quit"),
-        Binding("t", "app.toggle_theme_screen", "Theme(t)")
+        Binding("ㅂ", "app.quit", "Quit", show=False),
+        Binding("t", "app.toggle_theme_screen", "Theme(t)"),
+        Binding("ㅅ", "app.toggle_theme_screen", "Theme(t)", show=False)
     ]
     
     def compose(self) -> ComposeResult:
@@ -173,13 +186,21 @@ class PostListScreen(Screen):
     
     BINDINGS = [
         Binding("q", "app.quit", "Quit"),
+        Binding("ㅂ", "app.quit", "Quit", show=False),
         Binding("t", "app.toggle_theme_screen", "Theme(t)"),
+        Binding("ㅅ", "app.toggle_theme_screen", "Theme(t)", show=False),
         Binding("r", "refresh_list", "Refresh"),
+        Binding("ㄱ", "refresh_list", "Refresh", show=False),
         Binding("/", "search", "Search"),
         Binding("p", "prev", "Prev Page"),
+        Binding("ㅔ", "prev", "Prev Page", show=False),
         Binding("n", "next", "Next Page"),
+        Binding("ㅜ", "next", "Next Page", show=False),
+        Binding("o", "open_original_post", "Original", show=False),
+        Binding("ㅐ", "open_original_post", "Original", show=False),
         Binding("escape", "back", "Gallery(Esc)"),
         Binding("b", "back", "Back", show=False),
+        Binding("ㅠ", "back", "Back", show=False),
     ]
 
     def __init__(self, gallery_info: dict):
@@ -190,6 +211,7 @@ class PostListScreen(Screen):
         self.posts_data = []
         self.search_keyword = ""
         self.current_page = 1
+        self.current_post_url = ""
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -198,6 +220,7 @@ class PostListScreen(Screen):
         yield DataTable(id="post_list")
         with ScrollableContainer(id="post_viewer"):
             yield Static(id="post_header")
+            yield Link("↗ 원글 열기", id="original_post_link", classes="-hidden", tooltip="브라우저에서 원글을 엽니다")
             yield Markdown(id="post_content", open_links=False)
         yield Footer()
 
@@ -268,6 +291,7 @@ class PostListScreen(Screen):
             self.query_one("#post_viewer").remove_class("-active")
             self.query_one(DataTable).remove_class("-hidden")
             self.current_post = None
+            self.current_post_url = ""
             
             self.app.bind("p", "prev", description="Prev Page", show=True)
             self.app.bind("n", "next", description="Next Page", show=True)
@@ -298,17 +322,25 @@ class PostListScreen(Screen):
             return
             
         self.current_post = result["id"]
+        self.current_post_url = result.get("url", "")
         
         post_meta = next((p for p in self.posts_data if p["id"] == result["id"]), None)
         if post_meta:
             header_text = (
                 f"제목: {post_meta['title']}\n"
                 f"작성자: {post_meta['writer']} | 조회: {post_meta['views']} | 추천: {post_meta['recommends']}\n"
-                f"💡 단축키: [ b 또는 Esc : 목록으로 ]  [ p : 이전 글 ]  [ n : 다음 글 ]"
+                f"💡 단축키: [ b 또는 Esc : 목록으로 ]  [ p : 이전 글 ]  [ n : 다음 글 ]  [ o : 원글 열기 ]  [ 드래그 선택 후 Cmd+C : 복사 ]"
             )
             self.query_one("#post_header", Static).update(header_text)
             
         markdown_view = self.query_one("#post_content", Markdown)
+        original_url = result.get("url", "")
+        original_link = self.query_one("#original_post_link", Link)
+        if original_url:
+            original_link.url = original_url
+            original_link.remove_class("-hidden")
+        else:
+            original_link.add_class("-hidden")
         markdown_view.update(result["content"])
         
         self.query_one(DataTable).add_class("-hidden")
@@ -324,6 +356,12 @@ class PostListScreen(Screen):
         self.refresh_bindings()
         
         viewer.focus()
+
+    def action_open_original_post(self) -> None:
+        if not self.current_post_url:
+            self.notify("원글 주소가 없습니다.", severity="warning")
+            return
+        self.app.open_url(self.current_post_url)
 
     def action_prev(self) -> None:
         if self.query_one("#post_viewer").has_class("-active"):
@@ -384,7 +422,9 @@ class PostListScreen(Screen):
 
     def on_markdown_link_clicked(self, event: Markdown.LinkClicked) -> None:
         url = event.href
-        if "dcinside.com" in url or "dcimg" in url:
+        media_extensions = (".jpg", ".jpeg", ".png", ".gif", ".mp4", ".webm")
+        is_media_url = "dcimg" in url or url.lower().split("?")[0].endswith(media_extensions)
+        if is_media_url:
             self.query_one("#loading").add_class("-active")
             self.download_and_open_media(url)
         else:
@@ -448,6 +488,9 @@ class DCInsideApp(App):
     """A Textual app to view DCInside gallery."""
     
     CSS = """
+    Screen {
+        pointer: pointer;
+    }
     #gallery_select_container {
         padding: 2 4;
     }
@@ -479,6 +522,27 @@ class DCInsideApp(App):
         margin-bottom: 1;
         border-bottom: solid $primary;
     }
+    #original_post_link {
+        margin: 0 0 1 0;
+        padding: 0 1;
+        color: $accent;
+        text-style: bold underline;
+        background: $accent 10%;
+        border-left: thick $accent;
+        pointer: pointer;
+    }
+    #original_post_link:hover {
+        color: $text;
+        background: $accent 55%;
+    }
+    #original_post_link.-hidden {
+        display: none;
+    }
+    #post_content MarkdownBlock:hover {
+        color: $text;
+        background: $accent 25%;
+        pointer: pointer;
+    }
     #post_viewer.-active {
         display: block;
     }
@@ -509,6 +573,13 @@ class DCInsideApp(App):
         self.active_skin = settings.get("theme", "NASA 콘솔")
         self.set_theme(self.active_skin)
         self.push_screen(GallerySelectScreen())
+        self._set_pointer_shape("pointer")
+
+    def on_mouse_move(self, event: events.MouseMove) -> None:
+        if getattr(self.screen, "_selecting", False):
+            self._set_pointer_shape("text")
+            return
+        self._set_pointer_shape("pointer")
         
     def switch_to_gallery(self, gallery_info: dict):
         self.push_screen(PostListScreen(gallery_info))
@@ -531,5 +602,6 @@ class DCInsideApp(App):
         save_settings(settings)
 
 if __name__ == "__main__":
+    request_terminal_size()
     app = DCInsideApp()
-    app.run()
+    app.run(mouse=True)
