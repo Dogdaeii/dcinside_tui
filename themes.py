@@ -56,6 +56,14 @@ SKINS = {
     "오더 컨트롤": {
         "bg": "#08050f", "panel": "#120b1f", "fg": "#f4e7c5", "muted": "#8f7aa8",
         "accent": "#d4af37", "button": "#1b112b", "entry": "#030207"
+    },
+    "VS Code 다크": {
+        "bg": "#1e1e1e", "panel": "#252526", "fg": "#cccccc", "muted": "#808080",
+        "accent": "#007acc", "button": "#333333", "entry": "#1e1e1e"
+    },
+    "Claude Code": {
+        "bg": "#1f1f1e", "panel": "#2e2e2d", "fg": "#e5e3e0", "muted": "#85827c",
+        "accent": "#d97757", "button": "#333230", "entry": "#141414"
     }
 }
 

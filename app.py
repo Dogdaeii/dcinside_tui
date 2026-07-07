@@ -46,23 +46,36 @@ def save_galleries(galleries):
         
 def get_installed_browsers():
     browsers = ["Default"]
-    apps_dir = "/Applications"
-    if os.path.exists(apps_dir):
-        apps = os.listdir(apps_dir)
-        known_browsers = {
-            "Safari.app": "Safari",
-            "Google Chrome.app": "Google Chrome",
-            "Firefox.app": "Firefox",
-            "Microsoft Edge.app": "Microsoft Edge",
-            "Brave Browser.app": "Brave Browser",
-            "Opera.app": "Opera",
-            "Vivaldi.app": "Vivaldi",
-            "Arc.app": "Arc",
-            "Whale.app": "Naver Whale",
-        }
-        for app in apps:
-            if app in known_browsers:
-                browsers.append(known_browsers[app])
+    if sys.platform == "darwin":
+        apps_dir = "/Applications"
+        if os.path.exists(apps_dir):
+            apps = os.listdir(apps_dir)
+            known_browsers = {
+                "Safari.app": "Safari",
+                "Google Chrome.app": "Google Chrome",
+                "Firefox.app": "Firefox",
+                "Microsoft Edge.app": "Microsoft Edge",
+                "Brave Browser.app": "Brave Browser",
+                "Opera.app": "Opera",
+                "Vivaldi.app": "Vivaldi",
+                "Arc.app": "Arc",
+                "Whale.app": "Naver Whale",
+            }
+            for app in apps:
+                if app in known_browsers:
+                    browsers.append(known_browsers[app])
+    elif sys.platform == "win32":
+        paths = [
+            (os.environ.get("PROGRAMFILES", "C:\\Program Files") + "\\Google\\Chrome\\Application\\chrome.exe", "Google Chrome"),
+            (os.environ.get("PROGRAMFILES(X86)", "C:\\Program Files (x86)") + "\\Microsoft\\Edge\\Application\\msedge.exe", "Microsoft Edge"),
+            (os.environ.get("PROGRAMFILES", "C:\\Program Files") + "\\Mozilla Firefox\\firefox.exe", "Firefox"),
+            (os.environ.get("LOCALAPPDATA", "C:\\Users\\Default\\AppData\\Local") + "\\Naver\\Naver Whale\\Application\\whale.exe", "Naver Whale"),
+        ]
+        for path, name in paths:
+            if os.path.exists(path):
+                browsers.append(name)
+    else:
+        browsers.extend(["Google Chrome", "Firefox"]) # fallback for linux
     return browsers
 
 def load_settings():
@@ -524,23 +537,25 @@ class PostListScreen(Screen):
 
     @work(exclusive=False, thread=True)
     def download_and_open_media(self, url: str) -> None:
-        import requests, tempfile, subprocess, os
-        try:
-            get_bounds_script = """
-            tell application "System Events"
-                set frontApp to name of first application process whose frontmost is true
-                tell process frontApp
-                    set termBounds to position of front window
-                    set termSize to size of front window
+        import requests, tempfile, subprocess, os, sys
+        termX, termY, termW, termH = None, None, None, None
+        if sys.platform == "darwin":
+            try:
+                get_bounds_script = """
+                tell application "System Events"
+                    set frontApp to name of first application process whose frontmost is true
+                    tell process frontApp
+                        set termBounds to position of front window
+                        set termSize to size of front window
+                    end tell
+                    return (item 1 of termBounds as string) & "," & (item 2 of termBounds as string) & "," & (item 1 of termSize as string) & "," & (item 2 of termSize as string)
                 end tell
-                return (item 1 of termBounds as string) & "," & (item 2 of termBounds as string) & "," & (item 1 of termSize as string) & "," & (item 2 of termSize as string)
-            end tell
-            """
-            result = subprocess.run(["osascript", "-e", get_bounds_script], capture_output=True, text=True)
-            term_bounds = result.stdout.strip().split(',')
-            termX, termY, termW, termH = map(int, term_bounds)
-        except Exception:
-            termX, termY, termW, termH = None, None, None, None
+                """
+                result = subprocess.run(["osascript", "-e", get_bounds_script], capture_output=True, text=True)
+                term_bounds = result.stdout.strip().split(',')
+                termX, termY, termW, termH = map(int, term_bounds)
+            except Exception:
+                pass
 
         headers = self.scraper.headers.copy()
         headers["Referer"] = "https://gall.dcinside.com/"
@@ -554,25 +569,33 @@ class PostListScreen(Screen):
             fd, path = tempfile.mkstemp(suffix=ext)
             with os.fdopen(fd, 'wb') as f:
                 f.write(resp.content)
-            subprocess.run(["open", path])
-            if termX is not None:
-                position_script = f"""
-                delay 0.5
-                tell application "System Events"
-                    set frontApp to name of first application process whose frontmost is true
-                    tell process frontApp
-                        set prevSize to size of front window
-                        set prevW to item 1 of prevSize
-                        set targetX to {termX} + {termW} - prevW
-                        set targetY to {termY}
-                        set position of front window to {{targetX, targetY}}
+            if sys.platform == "darwin":
+                subprocess.run(["open", path])
+                if termX is not None:
+                    position_script = f"""
+                    delay 0.5
+                    tell application "System Events"
+                        set frontApp to name of first application process whose frontmost is true
+                        tell process frontApp
+                            set prevSize to size of front window
+                            set prevW to item 1 of prevSize
+                            set targetX to {termX} + {termW} - prevW
+                            set targetY to {termY}
+                            set position of front window to {{targetX, targetY}}
+                        end tell
                     end tell
-                end tell
-                """
-                subprocess.Popen(["osascript", "-e", position_script])
+                    """
+                    subprocess.Popen(["osascript", "-e", position_script])
+                    self.app.call_from_thread(self.notify, "미디어를 열었습니다.")
+                else:
+                    self.app.call_from_thread(self.notify, "미디어를 열었습니다. (우측 정렬을 원하시면 Mac 시스템 설정에서 '손쉬운 사용' 권한을 허용해주세요)", severity="warning", timeout=5.0)
+            elif sys.platform == "win32":
+                os.startfile(path)
                 self.app.call_from_thread(self.notify, "미디어를 열었습니다.")
             else:
-                self.app.call_from_thread(self.notify, "미디어를 열었습니다. (우측 정렬을 원하시면 Mac 시스템 설정에서 '손쉬운 사용' 권한을 허용해주세요)", severity="warning", timeout=5.0)
+                subprocess.run(["xdg-open", path])
+                self.app.call_from_thread(self.notify, "미디어를 열었습니다.")
+                
             self.app.call_from_thread(self.query_one("#loading").remove_class, "-active")
         except Exception as e:
             self.app.call_from_thread(self.notify, f"미디어 열기 실패: {str(e)}", severity="error")
@@ -720,7 +743,22 @@ class DCInsideApp(App):
 
     def open_url(self, url: str) -> None:
         if hasattr(self, 'active_browser') and self.active_browser != "Default":
-            subprocess.Popen(["open", "-a", self.active_browser, url])
+            if sys.platform == "darwin":
+                subprocess.Popen(["open", "-a", self.active_browser, url])
+            elif sys.platform == "win32":
+                paths = {
+                    "Google Chrome": os.environ.get("PROGRAMFILES", "C:\\Program Files") + "\\Google\\Chrome\\Application\\chrome.exe",
+                    "Microsoft Edge": os.environ.get("PROGRAMFILES(X86)", "C:\\Program Files (x86)") + "\\Microsoft\\Edge\\Application\\msedge.exe",
+                    "Firefox": os.environ.get("PROGRAMFILES", "C:\\Program Files") + "\\Mozilla Firefox\\firefox.exe",
+                    "Naver Whale": os.environ.get("LOCALAPPDATA", "C:\\Users\\Default\\AppData\\Local") + "\\Naver\\Naver Whale\\Application\\whale.exe"
+                }
+                target_path = paths.get(self.active_browser)
+                if target_path and os.path.exists(target_path):
+                    subprocess.Popen([target_path, url])
+                else:
+                    super().open_url(url)
+            else:
+                super().open_url(url)
         else:
             super().open_url(url)
 
