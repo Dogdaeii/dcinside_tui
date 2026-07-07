@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import subprocess
 from textual.app import App, ComposeResult
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Header, Footer, DataTable, Markdown, Static, Input, OptionList, Label, Link
@@ -43,18 +44,84 @@ def save_galleries(galleries):
     with open(GALLERIES_FILE, "w", encoding="utf-8") as f:
         json.dump(galleries, f, ensure_ascii=False, indent=2)
         
+def get_installed_browsers():
+    browsers = ["Default"]
+    apps_dir = "/Applications"
+    if os.path.exists(apps_dir):
+        apps = os.listdir(apps_dir)
+        known_browsers = {
+            "Safari.app": "Safari",
+            "Google Chrome.app": "Google Chrome",
+            "Firefox.app": "Firefox",
+            "Microsoft Edge.app": "Microsoft Edge",
+            "Brave Browser.app": "Brave Browser",
+            "Opera.app": "Opera",
+            "Vivaldi.app": "Vivaldi",
+            "Arc.app": "Arc",
+            "Whale.app": "Naver Whale",
+        }
+        for app in apps:
+            if app in known_browsers:
+                browsers.append(known_browsers[app])
+    return browsers
+
 def load_settings():
     if not os.path.exists(SETTINGS_FILE):
-        return {"theme": "NASA 콘솔"}
+        return {"theme": "NASA 콘솔", "browser": "Default"}
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            settings = json.load(f)
+            if "browser" not in settings:
+                settings["browser"] = "Default"
+            return settings
     except:
-        return {"theme": "NASA 콘솔"}
+        return {"theme": "NASA 콘솔", "browser": "Default"}
 
 def save_settings(settings):
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(settings, f, ensure_ascii=False, indent=2)
+
+class BrowserSelectScreen(ModalScreen):
+    """Modal screen for selecting a browser."""
+    
+    CSS = """
+    BrowserSelectScreen {
+        align: center middle;
+    }
+    #browser_dialog {
+        padding: 1 2;
+        width: 40;
+        height: 20;
+        border: solid $primary;
+        background: $surface;
+    }
+    """
+    
+    BINDINGS = [
+        Binding("escape", "app.pop_screen", "Cancel"),
+        Binding("w", "app.pop_screen", "Cancel"),
+        Binding("ㅠ", "app.pop_screen", "Cancel", show=False)
+    ]
+    
+    def compose(self) -> ComposeResult:
+        with Vertical(id="browser_dialog"):
+            yield Label("브라우저 선택", classes="title")
+            yield OptionList(id="browser_list")
+            
+    def on_mount(self) -> None:
+        option_list = self.query_one("#browser_list", OptionList)
+        active_browser = self.app.active_browser
+        browsers = get_installed_browsers()
+        for idx, name in enumerate(browsers):
+            option_list.add_option(Option(name, id=name))
+            if name == active_browser:
+                option_list.highlighted = idx
+                
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        browser_name = event.option_id
+        self.app.set_browser(browser_name)
+        self.app.pop_screen()
+
 
 class ThemeSelectScreen(ModalScreen):
     """Modal screen for selecting a theme."""
@@ -103,7 +170,9 @@ class GallerySelectScreen(Screen):
         Binding("q", "app.quit", "Quit"),
         Binding("ㅂ", "app.quit", "Quit", show=False),
         Binding("t", "app.toggle_theme_screen", "Theme(t)"),
-        Binding("ㅅ", "app.toggle_theme_screen", "Theme(t)", show=False)
+        Binding("ㅅ", "app.toggle_theme_screen", "Theme(t)", show=False),
+        Binding("w", "app.toggle_browser_screen", "Browser(w)"),
+        Binding("ㅠ", "app.toggle_browser_screen", "Browser(w)", show=False)
     ]
     
     def compose(self) -> ComposeResult:
@@ -189,6 +258,8 @@ class PostListScreen(Screen):
         Binding("ㅂ", "app.quit", "Quit", show=False),
         Binding("t", "app.toggle_theme_screen", "Theme(t)"),
         Binding("ㅅ", "app.toggle_theme_screen", "Theme(t)", show=False),
+        Binding("w", "app.toggle_browser_screen", "Browser(w)"),
+        Binding("ㅠ", "app.toggle_browser_screen", "Browser(w)", show=False),
         Binding("r", "refresh_list", "Refresh"),
         Binding("ㄱ", "refresh_list", "Refresh", show=False),
         Binding("/", "search", "Search"),
@@ -299,6 +370,7 @@ class PostListScreen(Screen):
             self.app.bind("/", "search", description="Search", show=True)
             self.app.bind("escape", "back", description="Gallery(Esc)", show=True)
             self.app.bind("t", "app.toggle_theme_screen", description="Theme(t)", show=True)
+            self.app.bind("b", "app.toggle_browser_screen", description="Browser(w)", show=True)
             self.refresh_bindings()
             
             self.query_one(DataTable).focus()
@@ -352,6 +424,7 @@ class PostListScreen(Screen):
         self.app.bind("r", "refresh_list", description="Refresh", show=False)
         self.app.bind("/", "search", description="Search", show=False)
         self.app.bind("t", "app.toggle_theme_screen", description="Theme", show=False)
+        self.app.bind("b", "app.toggle_browser_screen", description="Browser", show=False)
         self.app.bind("escape", "back", description="List(Esc)", show=True)
         self.refresh_bindings()
         
@@ -572,6 +645,7 @@ class DCInsideApp(App):
         settings = load_settings()
         self.active_skin = settings.get("theme", "NASA 콘솔")
         self.set_theme(self.active_skin)
+        self.active_browser = settings.get("browser", "Default")
         self.push_screen(GallerySelectScreen())
         self._set_pointer_shape("pointer")
 
@@ -600,6 +674,21 @@ class DCInsideApp(App):
         settings = load_settings()
         settings["theme"] = theme_name
         save_settings(settings)
+
+    def action_toggle_browser_screen(self):
+        self.push_screen(BrowserSelectScreen())
+
+    def set_browser(self, browser_name: str):
+        self.active_browser = browser_name
+        settings = load_settings()
+        settings["browser"] = browser_name
+        save_settings(settings)
+
+    def open_url(self, url: str) -> None:
+        if hasattr(self, 'active_browser') and self.active_browser != "Default":
+            subprocess.Popen(["open", "-a", self.active_browser, url])
+        else:
+            super().open_url(url)
 
 if __name__ == "__main__":
     request_terminal_size()
