@@ -172,7 +172,9 @@ class GallerySelectScreen(Screen):
         Binding("t", "app.toggle_theme_screen", "Theme(t)"),
         Binding("ㅅ", "app.toggle_theme_screen", "Theme(t)", show=False),
         Binding("w", "app.toggle_browser_screen", "Browser(w)"),
-        Binding("ㅠ", "app.toggle_browser_screen", "Browser(w)", show=False)
+        Binding("ㅠ", "app.toggle_browser_screen", "Browser(w)", show=False),
+        Binding("u", "app.update_app", "Update(u)"),
+        Binding("ㅕ", "app.update_app", "Update(u)", show=False)
     ]
     
     def compose(self) -> ComposeResult:
@@ -260,6 +262,8 @@ class PostListScreen(Screen):
         Binding("ㅅ", "app.toggle_theme_screen", "Theme(t)", show=False),
         Binding("w", "app.toggle_browser_screen", "Browser(w)"),
         Binding("ㅠ", "app.toggle_browser_screen", "Browser(w)", show=False),
+        Binding("u", "app.update_app", "Update(u)"),
+        Binding("ㅕ", "app.update_app", "Update(u)", show=False),
         Binding("r", "refresh_list", "Refresh"),
         Binding("ㄱ", "refresh_list", "Refresh", show=False),
         Binding("/", "search", "Search"),
@@ -694,6 +698,19 @@ class DCInsideApp(App):
 
     def action_toggle_browser_screen(self):
         self.push_screen(BrowserSelectScreen())
+
+    @work(exclusive=True, thread=True)
+    def action_update_app(self):
+        self.call_from_thread(self.notify, "업데이트 확인 중...")
+        import subprocess
+        try:
+            res = subprocess.run(["git", "pull"], capture_output=True, text=True)
+            if "Already up to date." in res.stdout:
+                self.call_from_thread(self.notify, "이미 최신 버전입니다.")
+            else:
+                self.call_from_thread(self.notify, "업데이트가 완료되었습니다. 앱을 재시작해주세요!", severity="warning", timeout=5.0)
+        except Exception as e:
+            self.call_from_thread(self.notify, f"업데이트 실패: {str(e)}", severity="error")
 
     def set_browser(self, browser_name: str):
         self.active_browser = browser_name
