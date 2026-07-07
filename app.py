@@ -186,14 +186,14 @@ class GallerySelectScreen(Screen):
         
     def on_mount(self) -> None:
         self.title = "디시인사이드 뷰어"
-        self.sub_title = "v1.0.0 | Built by Jaden Lee"
+        self.sub_title = "v1.1.0 | Built by Jaden Lee"
         self.galleries = load_galleries()
         self.update_list()
         self.focus_list()
 
     def on_screen_resume(self) -> None:
         self.title = "디시인사이드 뷰어"
-        self.sub_title = "v1.0.0 | Built by Jaden Lee"
+        self.sub_title = "v1.1.0 | Built by Jaden Lee"
         self.focus_list()
 
     def focus_list(self) -> None:
@@ -279,6 +279,7 @@ class PostListScreen(Screen):
         self.gallery_info = gallery_info
         self.scraper = DCScraper(gallery_info["id"], gallery_info["type"])
         self.current_post = None
+        self.last_viewed_post_id = None
         self.posts_data = []
         self.search_keyword = ""
         self.current_page = 1
@@ -297,7 +298,7 @@ class PostListScreen(Screen):
 
     def on_mount(self) -> None:
         self.title = f"{self.gallery_info['name']} 갤러리"
-        self.sub_title = "v1.0.0 | Built by Jaden Lee"
+        self.sub_title = "v1.1.0 | Built by Jaden Lee"
         table = self.query_one(DataTable)
         table.cursor_type = "row"
         table.zebra_stripes = True
@@ -331,7 +332,9 @@ class PostListScreen(Screen):
         self.posts_data = posts
         table = self.query_one(DataTable)
         table.clear()
-        for post in posts:
+        
+        target_row_index = 0
+        for idx, post in enumerate(posts):
             table.add_row(
                 post["id"],
                 post["title"],
@@ -342,8 +345,15 @@ class PostListScreen(Screen):
                 post["recommends"],
                 key=post["id"]
             )
-        self.sub_title = f"페이지 {self.current_page} | v1.0.0 | Built by Jaden Lee"
+            if self.last_viewed_post_id == post["id"]:
+                target_row_index = idx
+                
+        self.sub_title = f"페이지 {self.current_page} | v1.1.0 | Built by Jaden Lee"
         table.focus()
+        
+        if self.last_viewed_post_id:
+            table.move_cursor(row=target_row_index)
+            self.last_viewed_post_id = None
 
     def action_refresh_list(self) -> None:
         if self.query_one("#post_viewer").has_class("-active"):
@@ -361,6 +371,9 @@ class PostListScreen(Screen):
         if self.query_one("#post_viewer").has_class("-active"):
             self.query_one("#post_viewer").remove_class("-active")
             self.query_one(DataTable).remove_class("-hidden")
+            
+            self.last_viewed_post_id = self.current_post
+            
             self.current_post = None
             self.current_post_url = ""
             
@@ -374,6 +387,8 @@ class PostListScreen(Screen):
             self.refresh_bindings()
             
             self.query_one(DataTable).focus()
+            
+            self.action_refresh_list()
             return
 
         # If neither search nor post is open, go back to Gallery Select
