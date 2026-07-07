@@ -201,14 +201,14 @@ class GallerySelectScreen(Screen):
         
     def on_mount(self) -> None:
         self.title = "디시인사이드 뷰어"
-        self.sub_title = "v1.1.1 | Built by Jaden Lee"
+        self.sub_title = "v1.2.0 | Built by Jaden Lee"
         self.galleries = load_galleries()
         self.update_list()
         self.focus_list()
 
     def on_screen_resume(self) -> None:
         self.title = "디시인사이드 뷰어"
-        self.sub_title = "v1.1.1 | Built by Jaden Lee"
+        self.sub_title = "v1.2.0 | Built by Jaden Lee"
         self.focus_list()
 
     def focus_list(self) -> None:
@@ -315,7 +315,7 @@ class PostListScreen(Screen):
 
     def on_mount(self) -> None:
         self.title = f"{self.gallery_info['name']} 갤러리"
-        self.sub_title = "v1.1.1 | Built by Jaden Lee"
+        self.sub_title = "v1.2.0 | Built by Jaden Lee"
         table = self.query_one(DataTable)
         table.cursor_type = "row"
         table.zebra_stripes = True
@@ -365,7 +365,7 @@ class PostListScreen(Screen):
             if self.last_viewed_post_id == post["id"]:
                 target_row_index = idx
                 
-        self.sub_title = f"페이지 {self.current_page} | v1.1.1 | Built by Jaden Lee"
+        self.sub_title = f"페이지 {self.current_page} | v1.2.0 | Built by Jaden Lee"
         table.focus()
         
         if self.last_viewed_post_id:
