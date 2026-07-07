@@ -203,6 +203,22 @@ class DCScraper:
                         prefix = "    └ " if cmt.get("depth", 0) > 0 else ""
                         name = cmt.get("name", "Unknown")
                         memo = cmt.get("memo", "")
+                        
+                        if "<" in memo:
+                            memo_soup = BeautifulSoup(memo, 'html.parser')
+                            for anchor in memo_soup.select('a'):
+                                href = anchor.get('href', '')
+                                if href.startswith('javascript:'):
+                                    anchor.replace_with(anchor.get_text())
+                                elif href:
+                                    if href.startswith('//'):
+                                        href = 'https:' + href
+                                    label = anchor.get_text(strip=True) or "링크"
+                                    anchor.replace_with(f"[{label}]({href})")
+                            for img in memo_soup.select('img'):
+                                img.replace_with("[디시콘/이미지]")
+                            memo = memo_soup.get_text(separator=' ', strip=True)
+                            
                         date = cmt.get("reg_date", "")
                         content += f"{prefix}**{name}** ({date}): {memo}\n\n"
             except Exception:
