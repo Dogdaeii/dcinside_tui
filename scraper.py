@@ -200,7 +200,7 @@ class DCScraper:
                         if not cmt.get("name"): # skip deleted or empty
                             continue
                         # If depth > 0, it's a reply
-                        prefix = "    └ " if cmt.get("depth", 0) > 0 else ""
+                        prefix = "└ " if cmt.get("depth", 0) > 0 else ""
                         name = cmt.get("name", "Unknown")
                         memo = cmt.get("memo", "")
                         
